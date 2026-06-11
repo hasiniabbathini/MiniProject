@@ -1,0 +1,8 @@
+flask
+flask-cors
+tensorflow
+lime
+opencv-python
+numpy
+matplotlib
+scikit-image

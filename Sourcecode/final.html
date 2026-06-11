@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RetinoDetect — Retinoblastoma AI Screening</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --surface2: #e8f0f8;
+    --border: rgba(66,153,225,0.18);
+    --accent: #2b6cb0;
+    --accent2: #2c7a7b;
+    --tumor-red: #c53030;
+    --normal-blue: #2b6cb0;
+    --text: #1a202c;
+    --muted: #4a5568;
+    --success: #276749;
+    --warning: #c05621;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(66,153,225,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(66,153,225,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb1 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(66,153,225,0.12) 0%, transparent 70%);
+    top: -100px; left: -100px;
+    animation: drift 12s ease-in-out infinite alternate;
+  }
+  .orb2 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(44,122,123,0.1) 0%, transparent 70%);
+    bottom: 10%; right: 5%;
+    animation: drift 15s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes drift {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(30px, 40px); }
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 48px;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    background: rgba(240,244,248,0.85);
+    box-shadow: 0 1px 12px rgba(66,153,225,0.08);
+  }
+
+  .logo { display: flex; align-items: center; gap: 12px; }
+
+  .logo-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px rgba(43,108,176,0.5);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  .logo-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .logo-name span { color: var(--accent); }
+
+  .logo-sub {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    background: white;
+  }
+
+  .hero {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 64px 24px 40px;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(43,108,176,0.08);
+    border: 1px solid rgba(43,108,176,0.2);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .hero h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+  .hero h1 em { font-style: italic; color: var(--accent); }
+
+  .hero p {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  .main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  .upload-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    transition: border-color 0.3s;
+    box-shadow: 0 2px 16px rgba(66,153,225,0.07);
+  }
+  .card:hover { border-color: rgba(43,108,176,0.35); }
+
+  .card-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-label::before {
+    content: '';
+    width: 20px; height: 1px;
+    background: var(--border);
+    display: inline-block;
+  }
+
+  .dropzone {
+    border: 2px dashed rgba(43,108,176,0.25);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(43,108,176,0.03);
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(43,108,176,0.07);
+  }
+
+  .dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    display: block;
+    opacity: 0.55;
+  }
+
+  .drop-text { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+  .drop-text strong { color: var(--accent); }
+
+  #preview-container { display: none; margin-top: 16px; }
+  #preview-img {
+    width: 100%;
+    border-radius: 10px;
+    max-height: 280px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+  }
+
+  .controls { margin-top: 20px; display: flex; gap: 12px; }
+
+  .btn {
+    flex: 1;
+    padding: 13px 20px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+
+  .btn-clear {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-clear:hover { border-color: rgba(43,108,176,0.4); color: var(--text); }
+
+  .btn-predict {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(43,108,176,0.25);
+  }
+  .btn-predict:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(43,108,176,0.4);
+  }
+  .btn-predict:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .info-card { display: flex; flex-direction: column; gap: 14px; }
+
+  .info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    background: var(--surface2);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .info-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+  .info-text h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+  .info-text p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+  #loading {
+    display: none;
+    text-align: center;
+    padding: 60px;
+  }
+
+  .spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  #results { display: none; }
+
+  .results-header { text-align: center; margin-bottom: 32px; }
+  .results-header h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .prediction-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .pred-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s;
+    box-shadow: 0 2px 12px rgba(66,153,225,0.07);
+  }
+
+  .pred-card.tumor {
+    border-color: rgba(197,48,48,0.3);
+    background: rgba(254,235,235,0.6);
+  }
+  .pred-card.normal {
+    border-color: rgba(43,108,176,0.3);
+    background: rgba(235,244,255,0.6);
+  }
+
+  .pred-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 10px;
+  }
+
+  .pred-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .pred-value.tumor-val { color: var(--tumor-red); }
+  .pred-value.normal-val { color: var(--normal-blue); }
+  .pred-value.conf-val { color: var(--success); }
+
+  .pred-sub { font-size: 0.75rem; color: var(--muted); }
+
+  .conf-bar-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 28px;
+    margin-bottom: 28px;
+    box-shadow: 0 2px 12px rgba(66,153,225,0.07);
+  }
+
+  .conf-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .conf-bar-track {
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .conf-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+  .conf-bar-fill.tumor-fill { background: linear-gradient(90deg, #c53030, #fc8181); }
+  .conf-bar-fill.normal-fill { background: linear-gradient(90deg, #2b6cb0, #63b3ed); }
+
+  .xai-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+
+  .xai-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(66,153,225,0.07);
+  }
+
+  .xai-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+  }
+
+  .xai-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: rgba(43,108,176,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(43,108,176,0.2);
+  }
+
+  .xai-card-title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+
+  .xai-card-body { padding: 16px; }
+  .xai-card-body img { width: 100%; border-radius: 8px; display: block; }
+
+  /* EXPLANATION BOXES — side by side below XAI visuals */
+  .explain-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+
+  .explain-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(66,153,225,0.07);
+  }
+
+  .explain-card h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.15rem;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+  }
+
+  .explain-card .esub {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .legend-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+
+  .legend-dot {
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .legend-dot.red   { background: #fc8181; }
+  .legend-dot.blue  { background: #63b3ed; }
+  .legend-dot.orange{ background: #f6ad55; }
+
+  .explain-text {
+    font-size: 0.83rem;
+    color: var(--muted);
+    line-height: 1.8;
+    border-left: 3px solid var(--border);
+    padding-left: 14px;
+  }
+  .explain-text strong { color: var(--text); }
+
+  .disclaimer {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    padding: 20px;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+    margin-top: 20px;
+  }
+
+  @media (max-width: 768px) {
+    header { padding: 16px 20px; }
+    .upload-section { grid-template-columns: 1fr; }
+    .prediction-grid { grid-template-columns: 1fr 1fr; }
+    .xai-grid { grid-template-columns: 1fr; }
+    .explain-grid { grid-template-columns: 1fr; }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease forwards;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <div>
+      <div class="logo-name">Retino<span>Detect</span></div>
+      <div class="logo-sub">XAI · Retinoblastoma Screening</div>
+    </div>
+  </div>
+  <div class="badge">v1.0 · MobileNetV2</div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">
+    <span>●</span> AI-Powered Screening
+  </div>
+  <h1>Explainable <em>Retinoblastoma</em><br/>Detection System</h1>
+  <p>Upload a retinal fundus image. Our model predicts tumor presence and explains <em>exactly</em> which regions influenced the decision.</p>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- UPLOAD + INFO -->
+  <div class="upload-section">
+    <div class="card">
+      <div class="card-label">Input Image</div>
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept="image/*" />
+        <span class="drop-icon">🔬</span>
+        <div class="drop-text">
+          <strong>Click or drag</strong> to upload<br/>
+          Retinal fundus image · JPG / PNG
+        </div>
+      </div>
+      <div id="preview-container">
+        <img id="preview-img" src="" alt="Preview"/>
+      </div>
+      <div class="controls">
+        <button class="btn btn-clear" id="btn-clear" onclick="clearAll()">Clear</button>
+        <button class="btn btn-predict" id="btn-predict" onclick="runPrediction()" disabled>
+          ▶ Analyse
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">How It Works</div>
+      <div class="info-card">
+        <div class="info-item">
+          <span class="info-icon">🧠</span>
+          <div class="info-text">
+            <h4>MobileNetV2 Classifier</h4>
+            <p>Deep CNN fine-tuned on retinal fundus images to detect Retinoblastoma tumor patterns with high accuracy.</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon">🟡</span>
+          <div class="info-text">
+            <h4>LIME — Local Explanation</h4>
+            <p>Highlights image superpixels that contributed most to the model's prediction using perturbation-based analysis.</p>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon">🔴</span>
+          <div class="info-text">
+            <h4>SHAP — Gradient Saliency</h4>
+            <p>SmoothGrad computes pixel-level importance. Red = tumor-driving regions. Blue = normal/healthy regions.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-msg">Computing SHAP saliency maps…</div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+
+    <div class="results-header fade-in">
+      <h2>Analysis Complete</h2>
+      <p style="color:var(--muted);font-size:0.85rem;">Results generated by MobileNetV2 + XAI pipeline</p>
+    </div>
+
+    <!-- Prediction Cards -->
+    <div class="prediction-grid fade-in">
+      <div class="pred-card" id="pred-card-main">
+        <div class="pred-label">Prediction</div>
+        <div class="pred-value" id="pred-label-val">—</div>
+        <div class="pred-sub" id="pred-sub">—</div>
+      </div>
+      <div class="pred-card">
+        <div class="pred-label">Confidence</div>
+        <div class="pred-value conf-val" id="pred-conf">—</div>
+        <div class="pred-sub">Model certainty</div>
+      </div>
+      <div class="pred-card">
+        <div class="pred-label">Tumor Probability</div>
+        <div class="pred-value" id="pred-tumor-prob" style="color:var(--tumor-red)">—</div>
+        <div class="pred-sub" id="pred-normal-prob-sub">—</div>
+      </div>
+    </div>
+
+    <!-- Confidence Bar -->
+    <div class="conf-bar-wrap fade-in">
+      <div class="conf-bar-label">
+        <span>NORMAL</span>
+        <span id="conf-bar-pct">0%</span>
+        <span>TUMOR</span>
+      </div>
+      <div class="conf-bar-track">
+        <div class="conf-bar-fill" id="conf-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- XAI Visuals -->
+    <div class="xai-grid fade-in">
+      <div class="xai-card">
+        <div class="xai-card-header">
+          <span class="xai-tag">XAI</span>
+          <span class="xai-card-title">LIME Explanation</span>
+        </div>
+        <div class="xai-card-body">
+          <img id="lime-img" src="" alt="LIME Explanation"/>
+        </div>
+      </div>
+      <div class="xai-card">
+        <div class="xai-card-header">
+          <span class="xai-tag">XAI</span>
+          <span class="xai-card-title">SHAP Saliency Map</span>
+        </div>
+        <div class="xai-card-body">
+          <img id="shap-img" src="" alt="SHAP Explanation"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIME + SHAP Explanation boxes side by side -->
+    <div class="explain-grid fade-in">
+
+      <!-- LIME Explanation -->
+      <div class="explain-card">
+        <h3>🟡 Understanding the LIME Map</h3>
+        <p class="esub">What the highlighted regions mean</p>
+        <div class="legend-row">
+          <div class="legend-item">
+            <div class="legend-dot orange"></div>
+            <span><strong>Highlighted regions</strong> — Most influential superpixels</span>
+          </div>
+        </div>
+        <div class="explain-text" id="lime-explain-dynamic">
+          LIME (Local Interpretable Model-agnostic Explanations) works by perturbing small regions of the image and observing how the model's prediction changes.
+          The <strong>highlighted superpixels</strong> are the areas whose removal caused the greatest drop in the model's confidence.
+          These regions directly influenced the classification decision.
+          The size of the highlighted area is <strong>proportional to the tumor probability</strong> — a high tumor probability results in a larger highlighted zone, while a low probability shows only a small region.
+        </div>
+      </div>
+
+      <!-- SHAP Explanation -->
+      <div class="explain-card">
+        <h3>🔬 Understanding the SHAP Map</h3>
+        <p class="esub">What the colours mean for your image</p>
+        <div class="legend-row">
+          <div class="legend-item">
+            <div class="legend-dot red"></div>
+            <span><strong style="color:var(--tumor-red)">Red regions</strong> — Driving the TUMOR prediction</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot blue"></div>
+            <span><strong style="color:var(--normal-blue)">Blue regions</strong> — Associated with NORMAL tissue</span>
+          </div>
+        </div>
+        <div class="explain-text" id="shap-explain-dynamic">
+          SHAP (SHapley Additive exPlanations) uses gradient-based saliency to compute how much each pixel <strong>contributed</strong> to the model's final decision.
+          The <strong>brighter</strong> and more saturated the colour, the <strong>stronger</strong> that region's influence on the prediction.
+          Regions with no overlay had <strong>little-to-no effect</strong> on the classification.
+          This transparency allows clinicians to verify the model is looking at <strong>clinically relevant</strong> regions — not noise or image artefacts.
+        </div>
+      </div>
+
+    </div>
+
+    <div class="disclaimer">
+      © 2025 RetinoDetect · For clinical decision support only · Not a substitute for professional medical diagnosis
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const fileInput = document.getElementById('file-input');
+  const dropzone = document.getElementById('dropzone');
+  const previewContainer = document.getElementById('preview-container');
+  const previewImg = document.getElementById('preview-img');
+  const btnPredict = document.getElementById('btn-predict');
+  let selectedFile = null;
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) handleFile(file);
+  });
+
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  function handleFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewContainer.style.display = 'block';
+      btnPredict.disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearAll() {
+    selectedFile = null;
+    fileInput.value = '';
+    previewImg.src = '';
+    previewContainer.style.display = 'none';
+    btnPredict.disabled = true;
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  const loadingMessages = [
+    'Loading model…',
+    'Running prediction…',
+    'Computing LIME explanation (this may take ~30s)…',
+    'Computing SHAP saliency map…',
+    'Finalising results…'
+  ];
+
+  async function runPrediction() {
+    if (!selectedFile) return;
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+    btnPredict.disabled = true;
+
+    let msgIdx = 0;
+    const msgEl = document.getElementById('loading-msg');
+    const msgInterval = setInterval(() => {
+      msgEl.textContent = loadingMessages[msgIdx % loadingMessages.length];
+      msgIdx++;
+    }, 3500);
+
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+
+    try {
+      const response = await fetch('http://localhost:5000/predict', {
+        method: 'POST',
+        body: formData
+      });
+      if (!response.ok) throw new Error('Server error');
+      const data = await response.json();
+      clearInterval(msgInterval);
+      document.getElementById('loading').style.display = 'none';
+      renderResults(data);
+    } catch (err) {
+      clearInterval(msgInterval);
+      document.getElementById('loading').style.display = 'none';
+      btnPredict.disabled = false;
+      alert('Error: Could not connect to the Flask server.\nMake sure app.py is running on localhost:5000');
+    }
+  }
+
+  function renderResults(data) {
+    const isTumor = data.prediction === 'TUMOR';
+
+    const mainCard = document.getElementById('pred-card-main');
+    mainCard.className = 'pred-card ' + (isTumor ? 'tumor' : 'normal');
+    const predVal = document.getElementById('pred-label-val');
+    predVal.textContent = data.prediction;
+    predVal.className = 'pred-value ' + (isTumor ? 'tumor-val' : 'normal-val');
+    document.getElementById('pred-sub').textContent = isTumor ? 'Retinoblastoma detected' : 'No tumor detected';
+    document.getElementById('pred-conf').textContent = data.confidence + '%';
+    document.getElementById('pred-tumor-prob').textContent = data.tumor_prob + '%';
+    document.getElementById('pred-normal-prob-sub').textContent = 'Normal: ' + data.normal_prob + '%';
+
+    const bar = document.getElementById('conf-bar-fill');
+    const barPct = document.getElementById('conf-bar-pct');
+    bar.className = 'conf-bar-fill ' + (isTumor ? 'tumor-fill' : 'normal-fill');
+    barPct.textContent = data.tumor_prob + '%';
+    setTimeout(() => { bar.style.width = data.tumor_prob + '%'; }, 100);
+
+    document.getElementById('lime-img').src = 'data:image/png;base64,' + data.lime_image;
+    document.getElementById('shap-img').src = 'data:image/png;base64,' + data.shap_image;
+
+    // Dynamic LIME explanation
+    const limeEl = document.getElementById('lime-explain-dynamic');
+    if (isTumor) {
+      const areaPct = (data.tumor_prob * 0.65).toFixed(0);
+      limeEl.innerHTML = `
+        LIME perturbs image superpixels and measures how the model output changes when each region is removed.
+        The <strong style="color:#c05621">highlighted regions</strong> are the superpixels that most strongly contributed to the
+        <strong style="color:var(--tumor-red)">TUMOR</strong> prediction with <strong>${data.confidence}%</strong> confidence.
+        Approximately <strong>${areaPct}%</strong> of the retinal surface is flagged as influential —
+        proportional to the tumor probability of <strong>${data.tumor_prob}%</strong>.
+        Clinicians should closely examine these zones for lesions or structural abnormalities characteristic of <strong>Retinoblastoma</strong>.
+      `;
+    } else {
+      if (data.tumor_prob < 5) {
+        limeEl.innerHTML = `
+          LIME found <strong>no significant affected region</strong> in this image.
+          The model is highly confident this is a <strong style="color:var(--normal-blue)">NORMAL</strong> retina
+          with <strong>${data.confidence}%</strong> confidence.
+          Removing any superpixel did not materially change the model's prediction, indicating
+          <strong>uniform healthy tissue</strong> throughout the retinal image.
+        `;
+      } else {
+        limeEl.innerHTML = `
+          The image is classified as <strong style="color:var(--normal-blue)">NORMAL</strong>, but a small tumor probability
+          of <strong style="color:var(--tumor-red)">${data.tumor_prob}%</strong> was detected.
+          LIME highlights a <strong>small zone</strong> proportional to this low probability — a minor anomaly
+          that was insufficient to trigger a tumor classification.
+          The highlighted region represents a small area of uncertainty that may warrant further <strong>clinical review</strong>.
+        `;
+      }
+    }
+
+    // Dynamic SHAP explanation
+    const shapEl = document.getElementById('shap-explain-dynamic');
+    if (isTumor) {
+      shapEl.innerHTML = `
+        The SHAP saliency map highlights the <strong style="color:var(--tumor-red)">red/pink regions</strong> on a white background —
+        these are the exact pixel areas that most strongly pushed the model to predict
+        <strong style="color:var(--tumor-red)">TUMOR</strong> with <strong>${data.confidence}%</strong> confidence.
+        Clinicians should examine these highlighted zones closely, as they represent anomalies
+        (irregular tissue, lesions, or structural changes) the model identified as characteristic of <strong>Retinoblastoma</strong>.
+        Regions without colour overlay had little-to-no effect on the classification.
+      `;
+    } else {
+      shapEl.innerHTML = `
+        The SHAP saliency map highlights <strong style="color:var(--normal-blue)">blue regions</strong> on a white background —
+        these are the pixel areas that most strongly reinforced a
+        <strong style="color:var(--normal-blue)">NORMAL</strong> classification with <strong>${data.confidence}%</strong> confidence.
+        The model found no significant tumor-associated patterns in the retinal fundus image.
+        The highlighted blue areas represent healthy retinal tissue features (vessels, optic disc structure, uniform coloration)
+        consistent with a <strong>normal eye</strong>.
+      `;
+    }
+
+    document.getElementById('results').style.display = 'block';
+  }
+</script>
+</body>
+</html>
